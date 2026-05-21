@@ -1,0 +1,128 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+// Pins
+int trigPin = 3;
+int echoPin = 4;
+int piezoPin = A0;
+
+int buzzerPin = 6;
+int ledPin = 8;
+
+long duration;
+float distance;
+float voltage;
+
+// Thresholds
+float distanceThreshold = 50.0;   // cm (animal detection)
+float piezoThreshold = 0.10;      // volts (train detection)
+
+void setup() {
+Serial.begin(9600);
+
+pinMode(trigPin, OUTPUT);
+pinMode(echoPin, INPUT);
+
+pinMode(buzzerPin, OUTPUT);
+pinMode(ledPin, OUTPUT);
+
+if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+Serial.println("OLED not found");
+while(1);
+}
+
+display.clearDisplay();
+}
+
+void loop() {
+
+// -------- ULTRASONIC --------
+digitalWrite(trigPin, LOW);
+delayMicroseconds(2);
+
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(10);
+
+digitalWrite(trigPin, LOW);
+
+duration = pulseIn(echoPin, HIGH, 30000); // timeout added
+distance = duration * 0.034 / 2;
+
+// -------- PIEZO --------
+int raw = analogRead(piezoPin);
+voltage = raw * (5.0 / 1023.0);
+
+// -------- DISPLAY HEADER --------
+display.clearDisplay();
+display.setTextColor(WHITE);
+
+display.setTextSize(1);
+display.setCursor(0, 0);
+display.print("D:");
+display.print(distance,1);
+display.print("cm V:");
+display.print(voltage,2);
+
+// -------- LOGIC --------
+if (voltage >= piezoThreshold) {
+
+
+// 🔴 TRAIN DETECTED
+display.setTextSize(2);
+display.setCursor(0, 25);
+display.print("TRAIN");
+
+display.setCursor(0, 45);
+display.print("COMING");
+
+digitalWrite(buzzerPin, HIGH);
+digitalWrite(ledPin, HIGH);   // steady ON
+
+
+}
+else if (distance > 0 && distance < distanceThreshold) {
+
+
+// 🟡 ANIMAL DETECTED
+display.setTextSize(1);
+display.setCursor(0, 30);
+display.print("Warning:");
+
+display.setCursor(0, 45);
+display.print("Animals roaming");
+
+// blinking LED + buzzer
+digitalWrite(buzzerPin, HIGH);
+digitalWrite(ledPin, HIGH);
+delay(200);
+
+digitalWrite(buzzerPin, LOW);
+digitalWrite(ledPin, LOW);
+delay(200);
+
+
+}
+else {
+
+
+// 🟢 SAFE
+display.setTextSize(2);
+display.setCursor(0, 30);
+display.print("SAFE");
+
+digitalWrite(buzzerPin, LOW);
+digitalWrite(ledPin, LOW);
+
+
+}
+
+display.display();
+
+delay(100);
+}
